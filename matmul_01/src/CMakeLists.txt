@@ -9,10 +9,6 @@ set(FPGA_EARLY_IMAGE ${TARGET_NAME}.report.a)
 if(NOT DEFINED FPGA_DEVICE)
     set(FPGA_DEVICE "Agilex7")
     set(DEVICE_FLAG "Agilex7")
-    message(STATUS "FPGA_DEVICE was not specified.\
-                    \nConfiguring the design to the default FPGA family: ${FPGA_DEVICE}\
-                    \nPlease refer to the README for information on target selection.")
-
     set(BSP_FLAG "")
 else()
     string(TOLOWER ${FPGA_DEVICE} FPGA_DEVICE_NAME)
@@ -101,9 +97,9 @@ endif()
 message(STATUS "ROWS_A=${ROWS_A}")
 message(STATUS "COMMON=${COMMON}")
 message(STATUS "COLS_B=${COLS_B}")
-message(STATUS "TILE_A=${TILE_A}")
-message(STATUS "TILE_B=${TILE_B}")
-message(STATUS "SEED=${SEED}")
+# message(STATUS "TILE_A=${TILE_A}")
+# message(STATUS "TILE_B=${TILE_B}")
+# message(STATUS "SEED=${SEED}")
 
 # A SYCL ahead-of-time (AoT) compile processes the device code in two stages.
 # 1. The "compile" stage compiles the device code to an intermediate representation (SPIR-V).

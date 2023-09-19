@@ -1,6 +1,7 @@
 #include <iomanip>
 #include <iostream>
 #include <chrono>
+#include <vector>
 
 // Fills a matrix with random numbers within the range [l_bound, u_bound).
 void FillRand(std::vector<float> &m_matrix, int l_bound, int u_bound,
@@ -77,11 +78,9 @@ void MatmulRef(std::vector<float> &a_matrix, std::vector<float> &b_matrix,
 
 int main(int argc, char *argv[]) {
   // Matrix paramters specified by build system
-  constexpr int kRowsA = 64;
-  constexpr int kCommon = 64;
-  constexpr int kColsB = 64;
-  constexpr int kTileA = 8;
-  constexpr int kTileB = 8;
+  constexpr int kRowsA = ROWS_A; // 64
+  constexpr int kCommon = COMMON; // 64
+  constexpr int kColsB = COLS_B;  // 64
 
   // Matrix sizes
   constexpr int kMatsizeA = kRowsA * kCommon;
@@ -89,11 +88,8 @@ int main(int argc, char *argv[]) {
   constexpr int kMatsizeC = kRowsA * kColsB;
 
   // Repetitions and number of matrices to measure performance
-  int repetitions = 16;
-  constexpr int kNumMatrices = 2;
-
-  try {
-
+  int repetitions = 1;
+  constexpr int kNumMatrices = 1000;
 
   // Create arrays to hold the input and output matrices
   std::vector<float> a_matrix(kMatsizeA * kNumMatrices);
@@ -107,10 +103,8 @@ int main(int argc, char *argv[]) {
   FillRand(a_matrix, kRandMin, kRandMax, kMatsizeA * kNumMatrices);
   FillRand(b_matrix, kRandMin, kRandMax, kMatsizeB * kNumMatrices);
 
-  std::cout << " Matrix A size: " << kRowsA << " x " << kCommon
-            << " (tile: " << kTileA << " x " << kCommon << ")" << std::endl
-            << " Matrix B size: " << kCommon << " x " << kColsB
-            << " (tile: " << kCommon << " x " << kTileB << ")" << std::endl
+  std::cout << " Matrix A size: " << kRowsA << " x " << kCommon << std::endl
+            << " Matrix B size: " << kCommon << " x " << kColsB << std::endl
             << std::endl;
   std::cout << "Running matrix multiplication of " << kNumMatrices
             << ((kNumMatrices > 1) ? " matrices " : " matrix ") << repetitions
@@ -128,14 +122,13 @@ int main(int argc, char *argv[]) {
   MatmulRef(a_matrix, b_transposed, c_reference, kRowsA, kCommon, kColsB,
             kNumMatrices);
   auto end_time = std::chrono::system_clock::now();
-  auto  duration = end_time - start_time;
-  //auto msec = std::chrono::duration_cast<std::chrono::milliseconds>(dur).count();
+  auto duration = end_time - start_time;
+  auto msec = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
 
-  std::cout << "Total duration: " << duration << " s" << std::endl;
-  std::cout << "Throughput    : " << repetitions * num_matrices / duration * 1e-3 
+  std::cout << "Total duration: " << msec << " ms" << std::endl;
+  std::cout << "Throughput    : " << (double)repetitions * kNumMatrices / msec
             << "k matrices/s" << std::endl; 
 
-#if DEBUG
   // Print A, B, C and reference matrices
   for (int matrix_idx = 0; matrix_idx < kNumMatrices; matrix_idx++) {
     std::cout << std::endl << matrix_idx << std::endl;
@@ -158,13 +151,7 @@ int main(int argc, char *argv[]) {
         c_reference.begin() + (matrix_idx + 1) * kMatsizeC};
     PrintMat(c_ref_vector, kRowsA, kColsB);
 
-    std::cout << std::endl << "Matrix C calculated" << std::endl;
-    std::vector<float> c_vector = {
-        c_matrix.begin() + matrix_idx * kMatsizeC,
-        c_matrix.begin() + (matrix_idx + 1) * kMatsizeC};
-    PrintMat(c_vector, kRowsA, kColsB);
   }
-#endif
 
   return 0;
 
