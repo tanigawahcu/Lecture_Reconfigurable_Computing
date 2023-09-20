@@ -44,6 +44,8 @@ template <typename TT,          // Datatype of the elements of the matrix
           int rows_a,           // Rows of matrix A
           int common,           // Columns of matrix A / rows of matrix B
           int cols_b,           // Columns of matrix B
+          int tile_a,           // Tile size for matrix A
+          int tile_b,           // Tile size for matrix B
           int num_matrices>     // Number of pairs of matrices to multiply
 void MatmulImpl(sycl::queue &q,            // Device queue
                 std::vector<TT> &a_matrix, // Input matrix A
@@ -84,18 +86,42 @@ void MatmulImpl(sycl::queue &q,            // Device queue
   q.memcpy(a, a_matrix.data(), kMatsizeA * num_matrices * sizeof(TT)).wait();
   q.memcpy(b, b_matrix.data(), kMatsizeB * num_matrices * sizeof(TT)).wait();
 
-  for( int matrix_idx = 0; matrix_idx < num_matrices; matirix_idx++ ) {
-    for (int row = 0; row < rows_a; row++) {
-      for (int col = 0; col < cols_b; col++) {
-        float dot_prod{0};
-    #pragma unroll
-        for (int k = 0; k < common; k++) {
-          dot_prod = fpga_reg(dot_prod) + a[matrix_idx * kMatsizeA + k * rows_a + row] * b[matrix_idx * kMatsizeB + col * common + k];
-        }
-        c[matrix_idx * kMatSizeC + col * rows_a + row] = dot_prod;
-      }
-    }
-  }
+  using PipeDataA = fpga_tools::NTuple<TT, tile_a>;
+  using PipeDataB = fpga_tools::NTuple<TT, tile_b>;
+  using PipeDataC = fpga_tools::NTuple<TT, tile_a>;
+
+  // Pipes to communicate the matrices between kernels
+  using PipeA = sycl::ext::intel::pipe<APipe, PipeDataA, 64>;
+  using PipeB = sycl::ext::intel::pipe<BPipe, PipeDataB, 64>;
+  using PipeC = sycl::ext::intel::pipe<CPipe, PipeDataC, 64>;
+  using PipeDone = sycl::ext::intel::pipe<DonePipe, bool, 64>;
+
+  // Producer kernel for matrix A
+  auto feeder_a_event = q.single_task<FeederA>(
+      MatrixReadFromDDRToPipeA<TT, kBL1, rows_a, common, cols_b, tile_a, tile_b,
+                               kElemsPerDDRAccess, num_matrices, PipeA,
+                               PipeDone>{a, repetitions});
+
+  // Producer kernel for matrix B
+  auto feeder_b_event = q.single_task<FeederB>(
+      MatrixReadFromDDRToPipeB<TT, kBL2, rows_a, common, cols_b, tile_a, tile_b,
+                               kElemsPerDDRAccess, num_matrices, PipeB>{
+          b, repetitions});
+
+  // Matrix multiply kernel
+  q.single_task<Matmul>(
+      fpga_linalg::StreamingMatmul<TT, common, tile_a, tile_b, PipeA, PipeB,
+                                   PipeC, PipeDone>{});
+
+  // Consumer kernel for matrix C
+  auto drain_event = q.single_task<Drain>(
+      MatrixReadPipeToDDR<TT, kBL3, rows_a, cols_b, tile_a, tile_b,
+                          kElemsPerDDRAccess, num_matrices, PipeC>{
+          c, repetitions});
+
+  feeder_a_event.wait();
+  feeder_b_event.wait();
+  drain_event.wait();
 
   // Compute the total time the execution lasted
   auto start_time = feeder_a_event.template get_profiling_info<
