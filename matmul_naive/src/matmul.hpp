@@ -8,6 +8,8 @@
 #include <sycl/ext/intel/prototype/interfaces.hpp>
 #include <sycl/sycl.hpp>
 
+#include "matmul_naive.hpp"
+
 
 #if not defined(IS_BSP)
 using sycl::ext::intel::experimental::property::usm::buffer_location;
@@ -15,14 +17,7 @@ using sycl::ext::intel::experimental::property::usm::buffer_location;
 
 // Forward declare the kernel and pipe names
 // (This prevents unwanted name mangling in the optimization report.)
-class FeederA;
-class FeederB;
-class Matmul;
-class Drain;
-class APipe;
-class BPipe;
-class CPipe;
-class DonePipe;
+class MatMul;
 
 /**
  * Implementation of the matrix multiplication using multiple streaming kernels.
@@ -61,7 +56,7 @@ void MatmulImpl(sycl::queue &q,            // Device queue
   constexpr int kBL1 = 0;
   constexpr int kBL2 = 1;
   constexpr int kBL3 = 2;
-
+  
   // Allocate FPGA DDR memory
 #if defined(IS_BSP)
   TT *a = sycl::malloc_device<TT>(kMatsizeA * num_matrices, q);
@@ -81,31 +76,19 @@ void MatmulImpl(sycl::queue &q,            // Device queue
   q.memcpy(a, a_matrix.data(), kMatsizeA * num_matrices * sizeof(TT)).wait();
   q.memcpy(b, b_matrix.data(), kMatsizeB * num_matrices * sizeof(TT)).wait();
 
-  for( int matrix_idx = 0; matrix_idx < num_matrices; matrix_idx++ ) {
-    for (int row = 0; row < rows_a; row++) {
-      for (int col = 0; col < cols_b; col++) {
-        float dot_prod{0};
-    #pragma unroll
-        for (int k = 0; k < common; k++) {
-          dot_prod = intelfpga::fpga_reg(dot_prod) + a[matrix_idx * kMatsizeA + k * rows_a + row] 
-                                                   * b[matrix_idx * kMatsizeB + col * common + k];
-        }
-        c[matrix_idx * kMatsizeC + col * rows_a + row] = dot_prod;
-      }
-    }
-  }
+  auto matmul_naive_event = q.single_task<MatMul>(MatMulNaive<TT, rows_a, common, cols_b, num_matrices>{a, b, c, repetitions});
 
   // Compute the total time the execution lasted
-  /*
-  auto start_time = feeder_a_event.template get_profiling_info<
+  
+  auto start_time = matmul_naive_event.template get_profiling_info<
       sycl::info::event_profiling::command_start>();
-  auto end_time = drain_event.template get_profiling_info<
+  auto end_time = matmul_naive_event.template get_profiling_info<
       sycl::info::event_profiling::command_end>();
   double diff = (end_time - start_time) / 1.0e9;
   std::cout << "   Total duration:   " << diff << " s" << std::endl;
   std::cout << "Throughput: " << repetitions * num_matrices / diff * 1e-3
             << "k matrices/s" << std::endl;
-*/
+
   // Copy result matrix back
   q.memcpy(c_matrix.data(), c, kMatsizeC * num_matrices * sizeof(TT)).wait();
 
