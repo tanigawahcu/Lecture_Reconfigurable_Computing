@@ -7,6 +7,8 @@
 #include "exception_handler.hpp"
 #include "matmul.hpp"
 
+//#define DEBUG 1
+
 // Fills a matrix with random numbers within the range [l_bound, u_bound).
 void FillRand(std::vector<float> &m_matrix, int l_bound, int u_bound,
               int elements) {
@@ -193,8 +195,8 @@ int main(int argc, char *argv[]) {
             << " times" << std::endl;
 
   // Run the matrix multiplication
-  MatmulImpl<float, kRowsA, kCommon, kColsB, kTileA, kTileB, kNumMatrices>(
-      q, a_matrix, b_matrix, c_matrix, repetitions);
+  MatmulImpl<float, kRowsA, kCommon, kColsB, kNumMatrices>(
+      q, a_matrix, b_transposed, c_matrix, repetitions);
 
 #if DEBUG
   // Print A, B, C and reference matrices

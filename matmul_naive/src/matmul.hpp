@@ -8,9 +8,6 @@
 #include <sycl/ext/intel/prototype/interfaces.hpp>
 #include <sycl/sycl.hpp>
 
-#include "memory_transfers.hpp"
-// Included from DirectProgramming/C++SYCL_FPGA/include/
-#include "streaming_matmul.hpp"
 
 #if not defined(IS_BSP)
 using sycl::ext::intel::experimental::property::usm::buffer_location;
@@ -84,20 +81,22 @@ void MatmulImpl(sycl::queue &q,            // Device queue
   q.memcpy(a, a_matrix.data(), kMatsizeA * num_matrices * sizeof(TT)).wait();
   q.memcpy(b, b_matrix.data(), kMatsizeB * num_matrices * sizeof(TT)).wait();
 
-  for( int matrix_idx = 0; matrix_idx < num_matrices; matirix_idx++ ) {
+  for( int matrix_idx = 0; matrix_idx < num_matrices; matrix_idx++ ) {
     for (int row = 0; row < rows_a; row++) {
       for (int col = 0; col < cols_b; col++) {
         float dot_prod{0};
     #pragma unroll
         for (int k = 0; k < common; k++) {
-          dot_prod = fpga_reg(dot_prod) + a[matrix_idx * kMatsizeA + k * rows_a + row] * b[matrix_idx * kMatsizeB + col * common + k];
+          dot_prod = intelfpga::fpga_reg(dot_prod) + a[matrix_idx * kMatsizeA + k * rows_a + row] 
+                                                   * b[matrix_idx * kMatsizeB + col * common + k];
         }
-        c[matrix_idx * kMatSizeC + col * rows_a + row] = dot_prod;
+        c[matrix_idx * kMatsizeC + col * rows_a + row] = dot_prod;
       }
     }
   }
 
   // Compute the total time the execution lasted
+  /*
   auto start_time = feeder_a_event.template get_profiling_info<
       sycl::info::event_profiling::command_start>();
   auto end_time = drain_event.template get_profiling_info<
@@ -106,7 +105,7 @@ void MatmulImpl(sycl::queue &q,            // Device queue
   std::cout << "   Total duration:   " << diff << " s" << std::endl;
   std::cout << "Throughput: " << repetitions * num_matrices / diff * 1e-3
             << "k matrices/s" << std::endl;
-
+*/
   // Copy result matrix back
   q.memcpy(c_matrix.data(), c, kMatsizeC * num_matrices * sizeof(TT)).wait();
 
