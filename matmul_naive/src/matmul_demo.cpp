@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
   int repetitions = argc > 1 ? atoi(argv[1]) : 1;
   constexpr int kNumMatrices = 1;
 #elif FPGA_HARDWARE
-  int repetitions = argc > 1 ? atoi(argv[1]) : 819200;
+  int repetitions = argc > 1 ? atoi(argv[1]) : 1000;
   constexpr int kNumMatrices = 2;
 #else // #if FPGA_EMULATOR
   int repetitions = argc > 1 ? atoi(argv[1]) : 16;

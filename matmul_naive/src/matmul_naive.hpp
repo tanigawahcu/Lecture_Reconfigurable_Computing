@@ -34,16 +34,18 @@ public:
     TT *c_ptr_located(c_ptr);
 #endif
 
-  for( int matrix_idx = 0; matrix_idx < num_matrices; matrix_idx++ ) {
-    for (int row = 0; row < rows_a; row++) {
-      for (int col = 0; col < cols_b; col++) {
-        float dot_prod{0};
-    #pragma unroll
-        for (int k = 0; k < common; k++) {
-          dot_prod = intelfpga::fpga_reg(dot_prod) + a_ptr_located[matrix_idx * kMatsizeA + k * rows_a + row] 
-                                                   * b_ptr_located[matrix_idx * kMatsizeB + col * common + k];
+  for( int rep = 0; rep < repetitions; rep++ ) {
+    for( int matrix_idx = 0; matrix_idx < num_matrices; matrix_idx++ ) {
+      for (int row = 0; row < rows_a; row++) {
+        for (int col = 0; col < cols_b; col++) {
+          float dot_prod{0};
+      #pragma unroll
+          for (int k = 0; k < common; k++) {
+            dot_prod = intelfpga::fpga_reg(dot_prod) + a_ptr_located[matrix_idx * kMatsizeA + k * rows_a + row] 
+                                                    * b_ptr_located[matrix_idx * kMatsizeB + col * common + k];
+          }
+          c_ptr_located[matrix_idx * kMatsizeC + col * rows_a + row] = dot_prod;
         }
-        c_ptr_located[matrix_idx * kMatsizeC + col * rows_a + row] = dot_prod;
       }
     }
   }

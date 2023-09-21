@@ -43,9 +43,6 @@ void MatmulImpl(sycl::queue &q,            // Device queue
                 std::vector<TT> &c_matrix, // Output matrix C = A * B
                 int repetitions            // Number of repetitions
 ) {
-  // Number of elements per DDR access
-  // NOTE: optimized for single-precision floating-point matrices
-  constexpr int kElemsPerDDRAccess = 8;
 
   // Matrix sizes
   constexpr int kMatsizeA = rows_a * common;
